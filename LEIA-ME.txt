@@ -1,17 +1,26 @@
-LEITOR OFFICE — WORD E POWERPOINT
+LEITOR OFFICE — atualização de leitura Word e PowerPoint
 
-Este pacote inclui o ícone novo do Leitor Office:
-- ícone externo para instalação/atalho Android e PWA;
-- ícone grande na tela inicial dentro do aplicativo;
-- ícone no cabeçalho do aplicativo.
+O QUE FOI ALTERADO
+- Leitura local dos formatos .DOC, .DOCX, .PPT e .PPTX usando a biblioteca Ream (reamkit).
+- O leitor converte o conteúdo para HTML dentro do próprio aparelho, sem enviar o documento para um servidor.
+- A conversão HTML inclui conteúdo estruturado e imagens presentes no fluxo do documento, quando suportadas pelo leitor.
+- Imagens, tabelas e elementos SVG recebem ajuste responsivo para telas de celular.
+- O aplicativo continua somente para leitura; não edita nem sobrescreve o arquivo original.
+- Manifesto inclui os quatro tipos MIME e extensões para associação de arquivos.
+- Código JavaScript recebe arquivos pela Launch Queue quando o APK/TWA Android é gerado com filtros de arquivo compatíveis.
 
-FUNÇÕES:
-- Somente leitura; não edita nem altera os arquivos.
-- Word: DOCX com leitura de texto e estrutura básica.
-- PowerPoint: PPTX com extração de texto por slide.
-- DOC e PPT antigos: suporte binário legado limitado nesta versão; o app informa a limitação e recomenda converter uma cópia para DOCX/PPTX.
-- Interface preparada para instalação como PWA e cache offline dos componentes após a primeira abertura com internet.
+IMPORTANTE SOBRE O ANDROID
+O manifesto sozinho não registra o app como opção “Abrir com” no Android. O pacote Android precisa ser reconstruído com uma versão do Bubblewrap que gere os intent-filters dos file_handlers (Bubblewrap 1.22.6 ou superior) e a integração TWA para encaminhar os URIs à Launch Queue. Depois, gere um novo APK/AAB no PWABuilder/Bubblewrap.
 
-IMPORTANTE:
-Esta versão não é um leitor integral de todos os elementos do Microsoft Office. Formatação avançada, imagens, animações, transições, objetos incorporados e alguns elementos podem não aparecer.
-Para atualizar uma versão já publicada/instalada, substitua os arquivos no repositório GitHub, aguarde a publicação do GitHub Pages e gere um novo pacote Android no PWABuilder. O ícone do app já instalado pode exigir reinstalação/atualização do APK.
+MANTER O MESMO APLICATIVO INSTALADO
+- Repositório: alexcfrj-bot/leitor-office
+- URL: https://alexcfrj-bot.github.io/leitor-office/
+- Package ID: io.github.alexcfrj_bot.leitoroffice
+- Ao gerar atualização Android, NÃO escolha uma chave de assinatura nova. Use a mesma signing.keystore da versão instalada e mantenha o mesmo Package ID e versionCode maior.
+- Faça backup seguro da keystore e das informações da chave; não as envie ao GitHub.
+
+LIMITAÇÕES
+Nenhum leitor de documentos garante reprodução perfeita de todos os recursos proprietários do Office. Arquivos com macros, objetos OLE, SmartArt, fontes ausentes, vídeos/áudios incorporados, proteção por senha ou elementos especiais podem ter diferenças ou não ser exibidos. Teste com cópias dos arquivos originais.
+
+DEPENDÊNCIA
+O motor Ream é carregado por CDN na primeira abertura com internet. O service worker guarda os recursos que forem carregados, mas o primeiro uso precisa de conexão. O aplicativo não envia o arquivo para servidor; a leitura acontece no navegador do aparelho.
