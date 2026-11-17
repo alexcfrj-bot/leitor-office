@@ -1,0 +1,17 @@
+LEITOR OFFICE — WORD E POWERPOINT
+
+Este pacote inclui o ícone novo do Leitor Office:
+- ícone externo para instalação/atalho Android e PWA;
+- ícone grande na tela inicial dentro do aplicativo;
+- ícone no cabeçalho do aplicativo.
+
+FUNÇÕES:
+- Somente leitura; não edita nem altera os arquivos.
+- Word: DOCX com leitura de texto e estrutura básica.
+- PowerPoint: PPTX com extração de texto por slide.
+- DOC e PPT antigos: suporte binário legado limitado nesta versão; o app informa a limitação e recomenda converter uma cópia para DOCX/PPTX.
+- Interface preparada para instalação como PWA e cache offline dos componentes após a primeira abertura com internet.
+
+IMPORTANTE:
+Esta versão não é um leitor integral de todos os elementos do Microsoft Office. Formatação avançada, imagens, animações, transições, objetos incorporados e alguns elementos podem não aparecer.
+Para atualizar uma versão já publicada/instalada, substitua os arquivos no repositório GitHub, aguarde a publicação do GitHub Pages e gere um novo pacote Android no PWABuilder. O ícone do app já instalado pode exigir reinstalação/atualização do APK.
