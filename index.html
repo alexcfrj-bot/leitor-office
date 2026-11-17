@@ -33,6 +33,20 @@ footer{text-align:center;color:#8995aa;font-size:11px;margin-top:28px}
 .pptx-controls button:disabled{opacity:.35;cursor:not-allowed}
 
 #content svg{max-width:100%;height:auto}#content table{max-width:100%;border-collapse:collapse;overflow-x:auto}#content td,#content th{border:1px solid #d8deea;padding:6px}#content{overflow-wrap:anywhere}#content p{line-height:1.55}
+
+/* Navegador de miniaturas do PowerPoint */
+.pptx-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px;align-items:start;width:100%}
+.pptx-thumbs{background:#f4f7fc;border:1px solid #dfe7f2;border-radius:13px;padding:10px;max-height:76vh;overflow-y:auto;display:flex;flex-direction:column;gap:9px}
+.pptx-thumbs-title{font-size:12px;font-weight:800;color:#243b63;padding:3px 4px 7px;position:sticky;top:-10px;background:#f4f7fc;z-index:1}
+.pptx-thumb{display:grid;grid-template-columns:26px minmax(0,1fr);gap:7px;align-items:center;border:2px solid transparent;border-radius:9px;padding:5px;background:#fff;cursor:pointer;text-align:left;color:#30415f}
+.pptx-thumb:hover{border-color:#9bb9ec}
+.pptx-thumb.active{border-color:#2767d8;background:#eaf1ff;box-shadow:0 0 0 1px #2767d822}
+.pptx-thumb-num{font-size:12px;font-weight:800;text-align:center}
+.pptx-thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#17233d;border-radius:4px}
+.pptx-main{min-width:0}
+.pptx-thumb-loading{font-size:11px;color:#66758c;padding:7px 4px}
+@media(max-width:700px){.pptx-layout{grid-template-columns:minmax(0,1fr)}.pptx-thumbs{max-height:none;flex-direction:row;overflow-x:auto;overflow-y:hidden;align-items:flex-start}.pptx-thumbs-title{position:static;min-width:74px;align-self:center}.pptx-thumb{flex:0 0 145px;grid-template-columns:22px minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -101,21 +115,40 @@ async function renderDocx(file){
 }
 async function renderPptx(file){
  if(!window.PptxViewJS||!window.PptxViewJS.PPTXViewer)throw new Error('O renderizador PowerPoint não foi carregado. Conecte-se à internet e tente novamente.');
+ const layout=document.createElement('div');layout.className='pptx-layout';
+ const thumbs=document.createElement('aside');thumbs.className='pptx-thumbs';thumbs.innerHTML='<div class="pptx-thumbs-title">Slides</div><div class="pptx-thumb-loading">Preparando miniaturas…</div>';
+ const main=document.createElement('div');main.className='pptx-main';
  const stage=document.createElement('div');stage.className='pptx-stage';
  const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;canvas.setAttribute('aria-label','Slide da apresentação');
  const controls=document.createElement('div');controls.className='pptx-controls';
  const prev=document.createElement('button');prev.textContent='← Anterior';
  const status=document.createElement('span');status.textContent='Carregando slides…';
  const next=document.createElement('button');next.textContent='Próximo →';
- controls.append(prev,status,next);stage.append(canvas,controls);content.append(stage);
+ controls.append(prev,status,next);stage.append(canvas,controls);main.append(stage);layout.append(thumbs,main);content.append(layout);
  const v=new window.PptxViewJS.PPTXViewer({canvas});activePptxViewer=v;
  await v.loadFile(file);
- const total=v.getSlideCount();let index=0;
- async function draw(){await v.goToSlide(index);await v.render();status.textContent=`Slide ${index+1} de ${total}`;prev.disabled=index<=0;next.disabled=index>=total-1}
+ const total=v.getSlideCount();let index=0;const thumbButtons=[];
+ async function draw(){await v.goToSlide(index);await v.render();status.textContent=`Slide ${index+1} de ${total}`;prev.disabled=index<=0;next.disabled=index>=total-1;thumbButtons.forEach((b,i)=>b.classList.toggle('active',i===index));const active=thumbButtons[index];if(active)active.scrollIntoView({block:'nearest',inline:'nearest'});}
  prev.onclick=async()=>{if(index>0){index--;await draw()}};
  next.onclick=async()=>{if(index<total-1){index++;await draw()}};
  await draw();
- $('#message').innerHTML='<div class="notice">Apresentação aberta em modo de slides. Use Anterior e Próximo para navegar. Elementos especiais podem variar conforme o arquivo.</div>';
+ const loading=thumbs.querySelector('.pptx-thumb-loading');
+ // Renderiza as miniaturas em um canvas auxiliar, sem piscar ou alterar o slide principal.
+ try{
+  const offscreen=document.createElement('canvas');offscreen.width=480;offscreen.height=270;
+  const tv=new window.PptxViewJS.PPTXViewer({canvas:offscreen});
+  await tv.loadFile(file);
+  for(let i=0;i<total;i++){
+   await tv.goToSlide(i);await tv.render();
+   const button=document.createElement('button');button.type='button';button.className='pptx-thumb'+(i===index?' active':'');button.setAttribute('aria-label',`Abrir slide ${i+1}`);button.title=`Slide ${i+1}`;
+   const number=document.createElement('span');number.className='pptx-thumb-num';number.textContent=String(i+1);
+   const image=document.createElement('img');image.alt=`Miniatura do slide ${i+1}`;image.loading='lazy';image.src=offscreen.toDataURL('image/jpeg',0.72);
+   button.append(number,image);button.onclick=async()=>{index=i;await draw()};thumbButtons.push(button);thumbs.append(button);
+   if(i===0&&loading)loading.remove();
+  }
+  tv.destroy?.();
+ }catch(e){if(loading)loading.textContent='Não foi possível gerar as miniaturas deste arquivo.';}
+ $('#message').innerHTML=`<div class="notice">Apresentação aberta com miniaturas. Clique em qualquer slide à esquerda para navegar. Total: ${total} slides.</div>`;
 }
 async function renderLegacyWithReam(file,ext){
  const Ream=await reamReady;const bytes=new Uint8Array(await file.arrayBuffer());const doc=Ream.parse(bytes);
