@@ -1,26 +1,28 @@
-LEITOR OFFICE — atualização de leitura Word e PowerPoint
+LEITOR OFFICE — candidato de correção dos visualizadores DOCX e PPTX
 
-O QUE FOI ALTERADO
-- Leitura local dos formatos .DOC, .DOCX, .PPT e .PPTX usando a biblioteca Ream (reamkit).
-- O leitor converte o conteúdo para HTML dentro do próprio aparelho, sem enviar o documento para um servidor.
-- A conversão HTML inclui conteúdo estruturado e imagens presentes no fluxo do documento, quando suportadas pelo leitor.
-- Imagens, tabelas e elementos SVG recebem ajuste responsivo para telas de celular.
-- O aplicativo continua somente para leitura; não edita nem sobrescreve o arquivo original.
-- Manifesto inclui os quatro tipos MIME e extensões para associação de arquivos.
-- Código JavaScript recebe arquivos pela Launch Queue quando o APK/TWA Android é gerado com filtros de arquivo compatíveis.
+O QUE ESTA VERSÃO MUDA
+- DOCX: usa docx-preview para renderizar páginas, imagens incorporadas, tabelas, cabeçalhos e rodapés no navegador.
+- PPTX: usa PptxViewJS para desenhar um slide por vez em canvas, com navegação Anterior/Próximo.
+- DOC e PPT antigos: continuam usando Ream como conversor de compatibilidade para HTML. A fidelidade desses formatos binários ainda precisa ser testada.
+- A leitura continua local no navegador; os arquivos não são enviados pelo código do aplicativo.
+- Nenhum APK foi gerado nesta etapa.
 
-IMPORTANTE SOBRE O ANDROID
-O manifesto sozinho não registra o app como opção “Abrir com” no Android. O pacote Android precisa ser reconstruído com uma versão do Bubblewrap que gere os intent-filters dos file_handlers (Bubblewrap 1.22.6 ou superior) e a integração TWA para encaminhar os URIs à Launch Queue. Depois, gere um novo APK/AAB no PWABuilder/Bubblewrap.
+IMPORTANTE
+Esta é uma versão candidata para testes, não uma garantia de compatibilidade total com todos os recursos do Microsoft Office. SmartArt, macros, objetos OLE, animações, transições, fontes não instaladas, gráficos complexos e elementos especiais podem apresentar diferenças.
 
-MANTER O MESMO APLICATIVO INSTALADO
-- Repositório: alexcfrj-bot/leitor-office
-- URL: https://alexcfrj-bot.github.io/leitor-office/
-- Package ID: io.github.alexcfrj_bot.leitoroffice
-- Ao gerar atualização Android, NÃO escolha uma chave de assinatura nova. Use a mesma signing.keystore da versão instalada e mantenha o mesmo Package ID e versionCode maior.
-- Faça backup seguro da keystore e das informações da chave; não as envie ao GitHub.
+DEPENDÊNCIAS
+Os renderizadores são carregados por CDN. O primeiro uso de cada biblioteca exige internet. Depois, o cache do navegador/service worker pode armazenar os recursos, mas o funcionamento offline precisa ser validado no aparelho.
 
-LIMITAÇÕES
-Nenhum leitor de documentos garante reprodução perfeita de todos os recursos proprietários do Office. Arquivos com macros, objetos OLE, SmartArt, fontes ausentes, vídeos/áudios incorporados, proteção por senha ou elementos especiais podem ter diferenças ou não ser exibidos. Teste com cópias dos arquivos originais.
+TESTES OBRIGATÓRIOS ANTES DE GERAR APK
+1. DOCX com imagens inline e flutuantes, tabelas, cabeçalho e rodapé.
+2. PPTX com fotos, fundos, formas, gráficos e múltiplos slides.
+3. DOC e PPT binários antigos, incluindo imagens.
+4. Android: testar seleção manual e recebimento via Abrir com/Compartilhar após reconstruir a TWA com filtros de arquivos.
 
-DEPENDÊNCIA
-O motor Ream é carregado por CDN na primeira abertura com internet. O service worker guarda os recursos que forem carregados, mas o primeiro uso precisa de conexão. O aplicativo não envia o arquivo para servidor; a leitura acontece no navegador do aparelho.
+ANDROID / APK
+O manifesto declara os quatro formatos, mas isso não basta para o Android mostrar o app em Abrir com. O pacote Android precisa suportar os filtros file_handlers e encaminhar os arquivos à Launch Queue. Ao atualizar o APK, manter Package ID io.github.alexcfrj_bot.leitoroffice, usar versionCode maior e a mesma chave de assinatura da instalação existente. Nunca enviar signing.keystore ao GitHub.
+
+REPOSITÓRIO
+https://github.com/alexcfj-bot/leitor-office
+SITE
+https://alexcfrj-bot.github.io/leitor-office/

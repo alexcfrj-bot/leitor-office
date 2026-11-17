@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#123b8b">
 <meta name="description" content="Leitor Office: visualize documentos Word e apresentações PowerPoint, sem editar.">
-<link rel="manifest" href="./manifest.webmanifest?v=2">
+<link rel="manifest" href="./manifest.webmanifest?v=3">
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <title>Leitor Office</title>
@@ -23,6 +23,15 @@ footer{text-align:center;color:#8995aa;font-size:11px;margin-top:28px}
 @media(max-width:800px){.hero-brand-icon{width:84px;height:84px}.hero-main{gap:13px}.grid{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.panel{padding:17px}header{padding:17px 20px}.offline{font-size:10px}.viewer-head{align-items:flex-start;flex-direction:column}}
 
 #content img{max-width:100%!important;height:auto!important;display:block;margin:12px auto;object-fit:contain}
+#content .docx-wrapper{background:#eef2f8!important;padding:18px 8px!important}
+#content .docx-wrapper>section.docx{margin:0 auto 18px!important;box-shadow:0 4px 18px #102b6620!important;max-width:100%!important}
+#content canvas{max-width:100%;height:auto!important}
+.pptx-stage{background:#17233d;border-radius:14px;padding:12px;display:grid;gap:12px;justify-items:center}
+.pptx-stage canvas{display:block;width:100%;height:auto;max-width:100%;background:#fff;border-radius:5px;box-shadow:0 8px 25px #0003}
+.pptx-controls{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;color:#fff;font-size:13px}
+.pptx-controls button{border:1px solid #ffffff55;background:#ffffff18;color:#fff;padding:9px 14px;border-radius:9px;font-weight:700;cursor:pointer}
+.pptx-controls button:disabled{opacity:.35;cursor:not-allowed}
+
 #content svg{max-width:100%;height:auto}#content table{max-width:100%;border-collapse:collapse;overflow-x:auto}#content td,#content th{border:1px solid #d8deea;padding:6px}#content{overflow-wrap:anywhere}#content p{line-height:1.55}
 </style>
 </head>
@@ -46,6 +55,11 @@ footer{text-align:center;color:#8995aa;font-size:11px;margin-top:28px}
 <section class="viewer panel" id="viewer"><div class="viewer-head"><div class="filetitle"><div id="filebadge" class="type-icon w">W</div><strong id="filename">Arquivo</strong></div><div class="actions"><button class="tool" id="zoomout">A−</button><button class="tool" id="zoomin">A+</button><button class="tool" id="close">Fechar visualização</button></div></div><div id="message"></div><div id="content" class="paper"></div></section>
 <footer>Leitor Office • Visualização somente para leitura • Seus arquivos permanecem no seu dispositivo</footer>
 </main>
+<!-- Renderizadores locais no navegador: Word com páginas/imagens; PowerPoint com slides em canvas. -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.6/dist/docx-preview.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxviewjs@1.1.9/dist/PptxViewJS.min.js"></script>
 <script type="module">
 import { Ream } from "https://esm.sh/reamkit@1.33.1?bundle";
 window.__LeitorOfficeReam = Ream;
@@ -68,28 +82,61 @@ function show(name,ext){currentFile={name,ext};let k=kind(ext);$('#filebadge').c
 function renderRecent(){let r=JSON.parse(sessionStorage.getItem('loRecent')||'[]');$('#recent').className=r.length?'':'recent-empty';$('#recent').innerHTML=r.length?r.map(x=>`<div class="recent-item"><div class="type-icon ${kind(x.ext)[1]}">${kind(x.ext)[0]}</div><div><b>${esc(x.name)}</b><small>${kind(x.ext)[2]} · aberto nesta sessão</small></div></div>`).join(''):'Os arquivos abertos nesta sessão aparecerão aqui.'}
 function error(msg){$('#message').innerHTML='<div class="notice">'+esc(msg)+'</div>'}
 const reamReady=new Promise(resolve=>{if(window.__LeitorOfficeReam)resolve(window.__LeitorOfficeReam);else window.addEventListener('leitor-office-ream-ready',()=>resolve(window.__LeitorOfficeReam),{once:true})});
+let activePptxViewer=null;
+function clearRenderers(){
+ if(activePptxViewer){try{activePptxViewer.destroy?.()}catch(_){}activePptxViewer=null}
+ content.innerHTML='';
+}
+async function renderDocx(file){
+ if(!window.docx||!window.docx.renderAsync)throw new Error('O renderizador Word não foi carregado. Conecte-se à internet e tente novamente.');
+ await window.docx.renderAsync(file,content,content,{
+  className:'docx',inWrapper:true,ignoreWidth:false,ignoreHeight:false,
+  ignoreFonts:false,breakPages:true,renderHeaders:true,renderFooters:true,
+  renderFootnotes:true,renderEndnotes:true,renderComments:false,
+  useBase64URL:true,experimental:true
+ });
+ const imgs=[...content.querySelectorAll('img')];
+ await Promise.all(imgs.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve()));
+ if(imgs.length){$('#message').innerHTML='<div class="notice">Documento Word renderizado com '+imgs.length+' imagem(ns) identificada(s). Confira a disposição e a qualidade do arquivo original.</div>'}
+}
+async function renderPptx(file){
+ if(!window.PptxViewJS||!window.PptxViewJS.PPTXViewer)throw new Error('O renderizador PowerPoint não foi carregado. Conecte-se à internet e tente novamente.');
+ const stage=document.createElement('div');stage.className='pptx-stage';
+ const canvas=document.createElement('canvas');canvas.width=1280;canvas.height=720;canvas.setAttribute('aria-label','Slide da apresentação');
+ const controls=document.createElement('div');controls.className='pptx-controls';
+ const prev=document.createElement('button');prev.textContent='← Anterior';
+ const status=document.createElement('span');status.textContent='Carregando slides…';
+ const next=document.createElement('button');next.textContent='Próximo →';
+ controls.append(prev,status,next);stage.append(canvas,controls);content.append(stage);
+ const v=new window.PptxViewJS.PPTXViewer({canvas});activePptxViewer=v;
+ await v.loadFile(file);
+ const total=v.getSlideCount();let index=0;
+ async function draw(){await v.goToSlide(index);await v.render();status.textContent=`Slide ${index+1} de ${total}`;prev.disabled=index<=0;next.disabled=index>=total-1}
+ prev.onclick=async()=>{if(index>0){index--;await draw()}};
+ next.onclick=async()=>{if(index<total-1){index++;await draw()}};
+ await draw();
+ $('#message').innerHTML='<div class="notice">Apresentação aberta em modo de slides. Use Anterior e Próximo para navegar. Elementos especiais podem variar conforme o arquivo.</div>';
+}
+async function renderLegacyWithReam(file,ext){
+ const Ream=await reamReady;const bytes=new Uint8Array(await file.arrayBuffer());const doc=Ream.parse(bytes);
+ const result=await doc.convert('html');const raw=result?.bytes??result;
+ const html=typeof raw==='string'?raw:new TextDecoder('utf-8').decode(raw);
+ if(!html||!html.trim())throw new Error('O documento antigo não contém conteúdo que o leitor consiga exibir.');
+ content.innerHTML=html;
+ content.querySelectorAll('img').forEach(img=>{img.style.maxWidth='100%';img.style.height='auto';img.style.objectFit='contain'});
+ const losses=result?.losses||doc.losses||[];
+ $('#message').innerHTML='<div class="notice">Formato antigo '+ext.toUpperCase()+' aberto pelo conversor de compatibilidade. '+(losses.length?'Alguns elementos podem não manter a aparência original.':'')+'</div>';
+}
 async function openFile(file){
  let ext=(file.name.split('.').pop()||'').toLowerCase();
  if(!['doc','docx','ppt','pptx'].includes(ext)){error('Formato não reconhecido. Escolha DOC, DOCX, PPT ou PPTX.');return}
- show(file.name,ext);
- $('#message').innerHTML='<div class="notice">Preparando a leitura do documento…</div>';
+ show(file.name,ext);clearRenderers();
+ $('#message').innerHTML='<div class="notice">Preparando a leitura do arquivo…</div>';
  try{
-  const Ream=await reamReady;
-  const bytes=new Uint8Array(await file.arrayBuffer());
-  const doc=Ream.parse(bytes);
-  const result=await doc.convert('html');
-  const htmlBytes=result?.bytes??result;
-  const html=typeof htmlBytes==='string'?htmlBytes:new TextDecoder('utf-8').decode(htmlBytes);
-  if(!html||!html.trim())throw new Error('O arquivo não contém conteúdo que possa ser exibido.');
-  content.innerHTML=html;
-  content.querySelectorAll('img').forEach(img=>{img.style.maxWidth='100%';img.style.height='auto';img.style.objectFit='contain';img.loading='lazy';img.addEventListener('error',()=>{img.alt='Imagem incorporada não pôde ser exibida';img.style.border='1px dashed #c44'})});
-  content.querySelectorAll('table').forEach(t=>{t.style.maxWidth='100%';t.style.borderCollapse='collapse';t.style.display='block';t.style.overflowX='auto'});
-  content.querySelectorAll('svg').forEach(x=>{x.style.maxWidth='100%';x.style.height='auto'});
-  const losses=result?.losses||doc.losses||[];
-  $('#message').innerHTML='<div class="notice">Arquivo aberto em modo somente leitura. '+(losses.length?'Alguns recursos especiais podem ter diferenças na visualização.':'')+'</div>';
- }catch(e){
-  error('Não foi possível abrir este arquivo. Ele pode estar protegido por senha, danificado ou conter recursos ainda não suportados. Detalhe: '+(e.message||e));
- }
+  if(ext==='docx') await renderDocx(file);
+  else if(ext==='pptx') await renderPptx(file);
+  else await renderLegacyWithReam(file,ext);
+ }catch(e){clearRenderers();error('Não foi possível exibir este arquivo. Verifique se ele não está protegido por senha ou danificado. Detalhe: '+(e.message||e));}
 }
 // Recebe arquivos enviados pelo Android quando a versão TWA estiver empacotada com os filtros de arquivo.
 if('launchQueue' in window && window.launchQueue.setConsumer){
@@ -99,6 +146,7 @@ if('launchQueue' in window && window.launchQueue.setConsumer){
  });
 }
 renderRecent();
+document.addEventListener('keydown',async e=>{if(!activePptxViewer)return;if(e.key==='ArrowRight')await activePptxViewer.nextSlide();if(e.key==='ArrowLeft')await activePptxViewer.previousSlide()});
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').then(()=>$('#net').textContent='● Aplicativo pronto para uso offline').catch(()=>$('#net').textContent='● Modo de instalação indisponível'));
 window.addEventListener('online',()=>$('#net').textContent='● Conectado');window.addEventListener('offline',()=>$('#net').textContent='● Modo offline');
 </script>
